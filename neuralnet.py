@@ -115,15 +115,51 @@ def cnn_model_fn(features, labels, mode):
 
 def main(unused_argv):
   # Load training and eval data
-  mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-  train_data = mnist.train.images  # Returns np.array
-  train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-  eval_data = mnist.test.images  # Returns np.array
-  eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
+ # mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+ # A vector of filenames.
+ dir_path = "./Images/"
+ pictures = tf.gfile.ListDirectory(dir_path)
+ #print(pictures)
+ #exit(0)
+ filenames = tf.constant(pictures)
+ #print(filenames)
+ print(tf.shape(filenames))
+
+ # `labels[i]` is the label for the image in `filenames[i].
+ labels = tf.constant([i for i in range(10015)])
+
+ dataset = tf.data.Dataset.from_tensor_slices((filenames, labels))
+ dataset = dataset.map(_parse_function)
+ dataset.batch(batch_size = 10)
+ iter = dataset.make_one_shot_iterator()
+ record_defaults = [tf.float32] * 2
+ meta_data = tf.contrib.data.CsvDataset(["HAM10000_metadata.csv"], record_defaults, select_cols = [2, 3], header = True)
+ print(meta_data)
+ iter2 = meta_data.make_one_shot_iterator()
+ next_batch = iter.get_next()
+ with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    try:
+         while True:
+             sess.run(next_batch)
+    except tf.errors.OutOfRangeError:
+        pass
+# Reads an image from a file, decodes it into a dense tensor, and resizes it
+# to a fixed shape.
+def _parse_function(filename, label):
+  image_string = tf.read_file(filename)
+  image_decoded = tf.image.decode_jpeg(image_string)
+  image_resized = tf.image.resize_images(image_decoded, [28, 28])
+  return image_resized, label
+
+"""train_data = mnist.train.images  # Returns np.array
+ train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
+ eval_data = mnist.test.images  # Returns np.array
+ eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
 
   # Create the Estimator
-  mnist_classifier = tf.estimator.Estimator(
-      model_fn=cnn_model_fn, model_dir="/tmp/mnist_convnet_model")
+ mnist_classifier = tf.estimator.Estimator(
+    model_fn=cnn_model_fn, model_dir="/tmp/mnist_convnet_model")
 
   # Set up logging for predictions
   # Log the values in the "Softmax" tensor with label "probabilities"
@@ -140,7 +176,7 @@ def main(unused_argv):
       shuffle=True)
   mnist_classifier.train(
       input_fn=train_input_fn,
-      steps=20000,
+      steps=10,
       hooks=[logging_hook])
 
   # Evaluate the model and print results
@@ -150,7 +186,8 @@ def main(unused_argv):
       num_epochs=1,
       shuffle=False)
   eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
-  print(eval_results)
+  print(eval_results)"""
+
 
 
 if __name__ == "__main__":
